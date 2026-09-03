@@ -20,7 +20,7 @@ if user_prompt := st.chat_input("Ask something..."):
         st.write(user_prompt)
 
     # Use standard stable Gemini model endpoint
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": [{"text": user_prompt}]}]}
 
