@@ -21,7 +21,7 @@ def check_password():
     return True
 
 if check_password():
-    # --- APP INTERFACE & STYLING ---
+    # --- APP INTERFACE ---
     st.title("🤖 UTTKARSH AI Chatbot")
 
     # Retrieve secrets
@@ -55,7 +55,6 @@ if check_password():
             st.rerun()
 
     # --- CHAT DISPLAY & FILTERING ---
-    # Display search results if search bar has text
     if search_query:
         st.subheader(f"Search Results for: '{search_query}'")
         found = False
@@ -67,7 +66,6 @@ if check_password():
         if not found:
             st.info("No matching messages found.")
     else:
-        # Regular chat history display
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.write(message["content"])
@@ -79,7 +77,7 @@ if check_password():
             st.write(user_prompt)
 
         # Working REST Endpoint
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
         headers = {"Content-Type": "application/json"}
         payload = {"contents": [{"parts": [{"text": user_prompt}]}]}
 
