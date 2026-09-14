@@ -39,38 +39,16 @@ def save_history(messages):
         json.dump(messages, f, ensure_ascii=False, indent=2)
 
 
-# 3. Secure Custom Password Protection
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.title("🔒 Login Required")
-
-    # Fetch custom password from Streamlit Secrets or use default fallback
-    APP_PASSWORD = st.secrets.get("APP_PASSWORD", "MyCustomPass123!")
-
-    with st.form("login_form"):
-        pwd = st.text_input("Enter Password", type="password")
-        submit_button = st.form_submit_button("Login")
-
-        if submit_button:
-            if pwd == APP_PASSWORD:
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("Incorrect Password")
-
-    st.stop()
-
-# 4. Initialize Chat History State
+# 3. Initialize Chat History State directly (No Password)
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# 5. Sidebar Controls (Gemini Features)
+# 4. Sidebar Controls (Latest Gemini Models)
 with st.sidebar:
     st.title("✨ UTTKARSH AI")
+    # Updated dropdown to use the latest model releases
     model_choice = st.selectbox(
-        "Select Model", ["gemini-3.6-flash", "gemini-3.1-pro"]
+        "Select Model", ["gemini-3.8-flash", "gemini-3.1-pro-preview"]
     )
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
@@ -88,21 +66,21 @@ with st.sidebar:
         save_history([])
         st.rerun()
 
-# 6. Render Saved Chat Messages
+# 5. Render Saved Chat Messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 7. Multimodal Attachment Input
+# 6. Multimodal Attachment Input
 uploaded_file = st.file_uploader(
     "Attach image or document (optional)", type=["png", "jpg", "jpeg", "pdf"]
 )
 
-# 8. User Input & Gemini API Streaming Call
+# 7. User Input & Gemini API Streaming Call
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
-    # Append user prompt and render
+    # Append user prompt and save
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     save_history(st.session_state.messages)
 
@@ -161,7 +139,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
                             pass
             response_placeholder.markdown(full_response)
 
-            # Save full assistant response to session & JSON file
+            # Save full response to history
             st.session_state.messages.append(
                 {"role": "assistant", "content": full_response}
             )
