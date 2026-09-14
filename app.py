@@ -4,28 +4,26 @@ import os
 import requests
 import streamlit as st
 
-# 1. Page Configuration & Custom CSS (Dark Theme + Clean UI)
+# 1. Page Configuration & Native App Styling
 st.set_page_config(
     page_title="UTTKARSH AI", page_icon="✨", layout="wide"
 )
 
-st.markdown(
-    """
-    <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stAppHeader {display: none;}
-    .stChatMessage {border-radius: 12px; padding: 10px; margin-bottom: 8px;}
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stAppHeader {display: none;}
+            .stChatMessage {border-radius: 12px; padding: 10px; margin-bottom: 8px;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 HISTORY_FILE = "chat_history.json"
 
 
-# 2. History Storage Functions
+# 2. JSON History Storage Functions
 def load_history():
     if os.path.exists(HISTORY_FILE):
         try:
@@ -41,26 +39,34 @@ def save_history(messages):
         json.dump(messages, f, ensure_ascii=False, indent=2)
 
 
-# 3. Password Authentication
+# 3. Secure Custom Password Protection
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
     st.title("🔒 Login Required")
-    pwd = st.text_input("Enter Password", type="password")
-    if st.button("Login"):
-        if pwd == "1234":
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("Incorrect Password")
+
+    # Fetch custom password from Streamlit Secrets or use default fallback
+    APP_PASSWORD = st.secrets.get("APP_PASSWORD", "MyCustomPass123!")
+
+    with st.form("login_form"):
+        pwd = st.text_input("Enter Password", type="password")
+        submit_button = st.form_submit_button("Login")
+
+        if submit_button:
+            if pwd == APP_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Incorrect Password")
+
     st.stop()
 
-# 4. Initialize State
+# 4. Initialize Chat History State
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# 5. Sidebar Controls (Model Selection & Tools)
+# 5. Sidebar Controls (Gemini Features)
 with st.sidebar:
     st.title("✨ UTTKARSH AI")
     model_choice = st.selectbox(
@@ -68,7 +74,7 @@ with st.sidebar:
     )
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
-        "System Instructions (Optional)",
+        "System Instructions",
         value="You are UTTKARSH AI, a helpful, intelligent assistant.",
     )
 
@@ -82,32 +88,34 @@ with st.sidebar:
         save_history([])
         st.rerun()
 
-# 6. Render Previous Chat Messages
+# 6. Render Saved Chat Messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 7. File Upload Section (Multimodal Support)
+# 7. Multimodal Attachment Input
 uploaded_file = st.file_uploader(
-    "Attach image/document (optional)", type=["png", "jpg", "jpeg", "pdf"]
+    "Attach image or document (optional)", type=["png", "jpg", "jpeg", "pdf"]
 )
 
-# 8. User Input & Gemini API Call
+# 8. User Input & Gemini API Streaming Call
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
-    # Display and record user message
+    # Append user prompt and render
     st.session_state.messages.append({"role": "user", "content": user_prompt})
+    save_history(st.session_state.messages)
+
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Format entire context for multi-turn chat
+    # Build multi-turn context payload
     contents = []
     for msg in st.session_state.messages:
         role = "user" if msg["role"] == "user" else "model"
         contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-    # Add file content if uploaded
+    # Add file attachment if present
     if uploaded_file:
         bytes_data = uploaded_file.read()
         b64_data = base64.b64encode(bytes_data).decode("utf-8")
@@ -118,7 +126,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
             }
         })
 
-    # Construct Payload with System Instructions & Tools
+    # Prepare payload with instructions & search tools
     payload = {
         "contents": contents,
         "systemInstruction": {"parts": [{"text": system_instruction}]},
@@ -153,7 +161,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
                             pass
             response_placeholder.markdown(full_response)
 
-            # Store assistant response and update storage
+            # Save full assistant response to session & JSON file
             st.session_state.messages.append(
                 {"role": "assistant", "content": full_response}
             )
