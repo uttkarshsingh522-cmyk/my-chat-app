@@ -48,7 +48,7 @@ with st.sidebar:
     st.title("✨ UTTKARSH AI")
     # Updated dropdown to use the latest model releases
     model_choice = st.selectbox(
-        "Select Model", ["gemini-3.8-flash", "gemini-3.1-pro-preview"]
+        "Select Model", ["gemini-3.6-flash", "gemini-3.1-pro-preview"]
     )
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
