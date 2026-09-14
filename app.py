@@ -9,7 +9,7 @@ if user_prompt := st.chat_input("Ask something..."):
         st.write(user_prompt)
 
     # Gemini REST API streaming endpoint
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": [{"text": user_prompt}]}]}
 
