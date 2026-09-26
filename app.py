@@ -39,17 +39,32 @@ def save_history(messages):
         json.dump(messages, f, ensure_ascii=False, indent=2)
 
 
-# 3. Initialize Chat History State directly (No Password)
+# 3. Initialize Chat History State
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# 4. Sidebar Controls (Latest Gemini Models)
+# 4. Sidebar Controls (Displaying AI 3.6)
 with st.sidebar:
     st.title("✨ UTTKARSH AI")
-    # Updated dropdown to use the latest model releases
-    model_choice = st.selectbox(
-        "Select Model", ["gemini-3.6-flash", "gemini-3.1-pro-preview"]
+
+    # Display option shows "AI 3.6" directly in the dropdown menu
+    model_display = st.selectbox(
+        "Select Model",
+        [
+            "AI 3.6 (Gemini 3.6 Flash)",
+            "AI 3.5 (Gemini 3.5 Flash-Lite)",
+            "AI 3.1 Pro (Gemini 3.1 Pro)",
+        ],
     )
+
+    # Map display names to Gemini API endpoints
+    model_mapping = {
+        "AI 3.6 (Gemini 3.6 Flash)": "gemini-3.6-flash",
+        "AI 3.5 (Gemini 3.5 Flash-Lite)": "gemini-3.5-flash-lite",
+        "AI 3.1 Pro (Gemini 3.1 Pro)": "gemini-3.1-pro-preview",
+    }
+    selected_api_model = model_mapping[model_display]
+
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
         "System Instructions",
@@ -80,20 +95,21 @@ uploaded_file = st.file_uploader(
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
-    # Append user prompt and save
+    # Append user prompt and save locally
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     save_history(st.session_state.messages)
 
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Build multi-turn context payload
+    # Send last 6 messages to keep context active while preventing rate limits
+    recent_messages = st.session_state.messages[-6:]
     contents = []
-    for msg in st.session_state.messages:
+    for msg in recent_messages:
         role = "user" if msg["role"] == "user" else "model"
         contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-    # Add file attachment if present
+    # Add file attachment if uploaded
     if uploaded_file:
         bytes_data = uploaded_file.read()
         b64_data = base64.b64encode(bytes_data).decode("utf-8")
@@ -104,7 +120,6 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
             }
         })
 
-    # Prepare payload with instructions & search tools
     payload = {
         "contents": contents,
         "systemInstruction": {"parts": [{"text": system_instruction}]},
@@ -113,7 +128,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     if enable_search:
         payload["tools"] = [{"googleSearch": {}}]
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_choice}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{selected_api_model}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
 
     with st.chat_message("assistant"):
@@ -139,7 +154,6 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
                             pass
             response_placeholder.markdown(full_response)
 
-            # Save full response to history
             st.session_state.messages.append(
                 {"role": "assistant", "content": full_response}
             )
