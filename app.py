@@ -43,27 +43,9 @@ def save_history(messages):
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# 4. Sidebar Controls (Displaying AI 3.6)
+# 4. Sidebar Controls (Clean interface - No model selection UI)
 with st.sidebar:
     st.title("✨ UTTKARSH AI")
-
-    # Display option shows "AI 3.6" directly in the dropdown menu
-    model_display = st.selectbox(
-        "Select Model",
-        [
-            "AI 3.6 (Gemini 3.6 Flash)",
-            "AI 3.5 (Gemini 3.5 Flash-Lite)",
-            "AI 3.1 Pro (Gemini 3.1 Pro)",
-        ],
-    )
-
-    # Map display names to Gemini API endpoints
-    model_mapping = {
-        "AI 3.6 (Gemini 3.6 Flash)": "gemini-3.6-flash",
-        "AI 3.5 (Gemini 3.5 Flash-Lite)": "gemini-3.5-flash-lite",
-        "AI 3.1 Pro (Gemini 3.1 Pro)": "gemini-3.1-pro-preview",
-    }
-    selected_api_model = model_mapping[model_display]
 
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
@@ -102,7 +84,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Send last 6 messages to keep context active while preventing rate limits
+    # Send last 6 messages to prevent quota limit issues
     recent_messages = st.session_state.messages[-6:]
     contents = []
     for msg in recent_messages:
@@ -128,7 +110,8 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     if enable_search:
         payload["tools"] = [{"googleSearch": {}}]
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{selected_api_model}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    # Direct call to the backend model
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
 
     with st.chat_message("assistant"):
