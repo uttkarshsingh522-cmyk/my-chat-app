@@ -7,12 +7,17 @@ import streamlit as st
 # 1. Page Configuration & Native App Styling
 st.set_page_config(page_title="UTTKARSH AI", page_icon="✨", layout="wide")
 
+# Updated CSS to keep the sidebar collapse/expand toggle button always visible
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
             footer {visibility: hidden;}
-            .stAppHeader {display: none;}
+            .stAppHeader {background-color: transparent;}
+            [data-testid="stSidebarCollapseButton"] {
+                visibility: visible !important;
+                display: block !important;
+                z-index: 999999;
+            }
             .stChatMessage {border-radius: 12px; padding: 10px; margin-bottom: 8px;}
             </style>
             """
@@ -66,10 +71,8 @@ with st.sidebar:
     # Render a clickable button for each past conversation thread
     for session_id in list(st.session_state.all_sessions.keys()):
         messages = st.session_state.all_sessions[session_id]
-        # Use first message as title if available
         title = messages[0]["content"][:20] + "..." if messages else session_id
 
-        # Highlight current active chat
         button_label = (
             f"💬 {title}"
             if session_id != st.session_state.current_session_id
@@ -111,10 +114,8 @@ uploaded_file = st.file_uploader(
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
-    # Append user prompt to current active thread
     current_messages.append({"role": "user", "content": user_prompt})
 
-    # Rename session label dynamically from first question
     if (
         len(current_messages) == 1
         and st.session_state.current_session_id.startswith("Chat ")
@@ -135,7 +136,6 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Send last 6 messages of current session to stay within quota
     recent_messages = current_messages[-6:]
     contents = []
     for msg in recent_messages:
