@@ -4,29 +4,53 @@ import os
 import requests
 import streamlit as st
 
-# 1. Page Configuration & Native App Styling
+# 1. Page Configuration
 st.set_page_config(page_title="UTTKARSH AI", page_icon="✨", layout="wide")
 
-# Updated CSS to keep the sidebar collapse/expand toggle button always visible
-hide_streamlit_style = """
+# 2. Modern Gemini-Style CSS Injection
+gemini_css = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
-            .stAppHeader {background-color: transparent;}
-            [data-testid="stSidebarCollapseButton"] {
-                visibility: visible !important;
-                display: block !important;
-                z-index: 999999;
+            header {visibility: hidden;}
+            .stAppHeader {display: none;}
+
+            /* Custom styling for sidebar list items */
+            div[data-testid="stSidebar"] {
+                background-color: #f8f9fa;
+                border-right: 1px solid #e9ecef;
             }
-            .stChatMessage {border-radius: 12px; padding: 10px; margin-bottom: 8px;}
+
+            /* Sleek chat message styling */
+            .stChatMessage {
+                border-radius: 16px;
+                padding: 12px 16px;
+                margin-bottom: 10px;
+            }
+
+            /* Custom styling for full-width sidebar buttons */
+            .stButton > button {
+                border-radius: 20px;
+                border: 1px solid #dadce0;
+                background-color: #ffffff;
+                color: #3c4043;
+                font-weight: 500;
+                transition: all 0.2s ease;
+            }
+
+            .stButton > button:hover {
+                background-color: #f1f3f4;
+                border-color: #d2d6dc;
+                color: #1a73e8;
+            }
             </style>
             """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(gemini_css, unsafe_allow_html=True)
 
 SESSIONS_FILE = "chat_sessions.json"
 
 
-# 2. Session Management Functions
+# 3. Session Persistence
 def load_all_sessions():
     if os.path.exists(SESSIONS_FILE):
         try:
@@ -42,7 +66,6 @@ def save_all_sessions(sessions):
         json.dump(sessions, f, ensure_ascii=False, indent=2)
 
 
-# 3. Initialize Session State
 if "all_sessions" not in st.session_state:
     st.session_state.all_sessions = load_all_sessions()
 
@@ -52,73 +75,81 @@ if "current_session_id" not in st.session_state:
             st.session_state.all_sessions.keys()
         )[0]
     else:
-        st.session_state.current_session_id = "Chat 1"
-        st.session_state.all_sessions["Chat 1"] = []
+        st.session_state.current_session_id = "New Chat"
+        st.session_state.all_sessions["New Chat"] = []
 
-# 4. Sidebar Controls & Clickable Chat History
+# 4. Gemini-Style Sidebar Layout
 with st.sidebar:
-    st.title("✨ UTTKARSH AI")
+    st.markdown("### ✨ UTTKARSH AI")
 
-    if st.button("➕ New Chat", use_container_width=True):
-        new_id = f"Chat {len(st.session_state.all_sessions) + 1}"
+    # Primary Action: New Chat
+    if st.button("➕  New Chat", use_container_width=True):
+        count = len(st.session_state.all_sessions) + 1
+        new_id = f"Chat {count}"
         st.session_state.all_sessions[new_id] = []
         st.session_state.current_session_id = new_id
         save_all_sessions(st.session_state.all_sessions)
         st.rerun()
 
-    st.subheader("📜 Recent Chats")
+    st.markdown("---")
+    st.caption("Recent")
 
-    # Render a clickable button for each past conversation thread
+    # List of past conversations styled as list items
     for session_id in list(st.session_state.all_sessions.keys()):
         messages = st.session_state.all_sessions[session_id]
-        title = messages[0]["content"][:20] + "..." if messages else session_id
-
-        button_label = (
-            f"💬 {title}"
-            if session_id != st.session_state.current_session_id
-            else f"👉 {title}"
+        display_title = (
+            messages[0]["content"][:24] + "..." if messages else session_id
         )
-        if st.button(button_label, key=f"btn_{session_id}"):
+
+        is_active = session_id == st.session_state.current_session_id
+        icon = "💬" if not is_active else "🔹"
+
+        if st.button(
+            f"{icon} {display_title}",
+            key=f"nav_{session_id}",
+            use_container_width=True,
+        ):
             st.session_state.current_session_id = session_id
             st.rerun()
 
-    st.divider()
+    st.markdown("---")
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
         "System Instructions",
         value="You are UTTKARSH AI, a helpful, intelligent assistant.",
+        height=100,
     )
 
-    if st.button("🗑️ Clear All Chats"):
-        st.session_state.all_sessions = {"Chat 1": []}
-        st.session_state.current_session_id = "Chat 1"
+    if st.button("🗑️ Clear History", use_container_width=True):
+        st.session_state.all_sessions = {"New Chat": []}
+        st.session_state.current_session_id = "New Chat"
         save_all_sessions(st.session_state.all_sessions)
         st.rerun()
 
-# 5. Get current active chat messages
+# 5. Active Chat Screen
 current_messages = st.session_state.all_sessions.get(
     st.session_state.current_session_id, []
 )
 
-# Render active chat thread
 for msg in current_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 6. Multimodal Attachment Input
+# Multimodal Input Header
 uploaded_file = st.file_uploader(
     "Attach image or document (optional)", type=["png", "jpg", "jpeg", "pdf"]
 )
 
-# 7. User Input & Gemini API Streaming Call
+# 6. User Prompt Handler
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     current_messages.append({"role": "user", "content": user_prompt})
 
+    # Dynamically update chat title from user's first prompt
     if (
         len(current_messages) == 1
-        and st.session_state.current_session_id.startswith("Chat ")
+        and st.session_state.current_session_id.startswith(("Chat ", "New Chat"))
     ):
         new_title = (
             user_prompt[:25] + "..." if len(user_prompt) > 25 else user_prompt
@@ -136,6 +167,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
+    # API Request Pipeline
     recent_messages = current_messages[-6:]
     contents = []
     for msg in recent_messages:
