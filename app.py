@@ -7,50 +7,26 @@ import streamlit as st
 # 1. Page Configuration
 st.set_page_config(page_title="UTTKARSH AI", page_icon="✨", layout="wide")
 
-# 2. Modern Gemini-Style CSS Injection
-gemini_css = """
+# Styling to keep UI clean and fix sidebar toggle visibility
+hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stAppHeader {display: none;}
-
-            /* Custom styling for sidebar list items */
-            div[data-testid="stSidebar"] {
-                background-color: #f8f9fa;
-                border-right: 1px solid #e9ecef;
+            .stAppHeader {background-color: transparent;}
+            [data-testid="stSidebarCollapseButton"] {
+                visibility: visible !important;
+                display: block !important;
+                z-index: 999999;
             }
-
-            /* Sleek chat message styling */
-            .stChatMessage {
-                border-radius: 16px;
-                padding: 12px 16px;
-                margin-bottom: 10px;
-            }
-
-            /* Custom styling for full-width sidebar buttons */
-            .stButton > button {
-                border-radius: 20px;
-                border: 1px solid #dadce0;
-                background-color: #ffffff;
-                color: #3c4043;
-                font-weight: 500;
-                transition: all 0.2s ease;
-            }
-
-            .stButton > button:hover {
-                background-color: #f1f3f4;
-                border-color: #d2d6dc;
-                color: #1a73e8;
-            }
+            .stChatMessage {border-radius: 12px; padding: 10px; margin-bottom: 8px;}
             </style>
             """
-st.markdown(gemini_css, unsafe_allow_html=True)
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 SESSIONS_FILE = "chat_sessions.json"
 
 
-# 3. Session Persistence
+# 2. Session Management Functions
 def load_all_sessions():
     if os.path.exists(SESSIONS_FILE):
         try:
@@ -66,6 +42,7 @@ def save_all_sessions(sessions):
         json.dump(sessions, f, ensure_ascii=False, indent=2)
 
 
+# 3. Initialize Session State
 if "all_sessions" not in st.session_state:
     st.session_state.all_sessions = load_all_sessions()
 
@@ -78,12 +55,11 @@ if "current_session_id" not in st.session_state:
         st.session_state.current_session_id = "New Chat"
         st.session_state.all_sessions["New Chat"] = []
 
-# 4. Gemini-Style Sidebar Layout
+# 4. Sidebar Controls & Compressed History Dropdown
 with st.sidebar:
-    st.markdown("### ✨ UTTKARSH AI")
+    st.title("✨ UTTKARSH AI")
 
-    # Primary Action: New Chat
-    if st.button("➕  New Chat", use_container_width=True):
+    if st.button("➕ New Chat", use_container_width=True):
         count = len(st.session_state.all_sessions) + 1
         new_id = f"Chat {count}"
         st.session_state.all_sessions[new_id] = []
@@ -91,62 +67,81 @@ with st.sidebar:
         save_all_sessions(st.session_state.all_sessions)
         st.rerun()
 
-    st.markdown("---")
-    st.caption("Recent")
-
-    # List of past conversations styled as list items
-    for session_id in list(st.session_state.all_sessions.keys()):
-        messages = st.session_state.all_sessions[session_id]
-        display_title = (
-            messages[0]["content"][:24] + "..." if messages else session_id
+    # Compressed Chat History Expander (Closed by default until clicked)
+    with st.expander("📜 Recent Chats & Search", expanded=False):
+        search_query = st.text_input(
+            "🔍 Search history", value="", placeholder="Search chats..."
         )
 
-        is_active = session_id == st.session_state.current_session_id
-        icon = "💬" if not is_active else "🔹"
+        st.markdown("---")
 
-        if st.button(
-            f"{icon} {display_title}",
-            key=f"nav_{session_id}",
-            use_container_width=True,
-        ):
-            st.session_state.current_session_id = session_id
-            st.rerun()
+        # Filter sessions by search query
+        all_keys = list(st.session_state.all_sessions.keys())
+        for session_id in all_keys:
+            messages = st.session_state.all_sessions[session_id]
 
-    st.markdown("---")
+            # Determine title
+            display_title = (
+                messages[0]["content"][:22] + "..." if messages else session_id
+            )
+
+            # Check if search keyword matches title or any message content
+            matches_search = True
+            if search_query.strip():
+                content_text = " ".join([m["content"] for m in messages]).lower()
+                if (
+                    search_query.lower() not in display_title.lower()
+                    and search_query.lower() not in content_text
+                ):
+                    matches_search = False
+
+            if matches_search:
+                is_active = session_id == st.session_state.current_session_id
+                icon = "🔹" if is_active else "💬"
+
+                if st.button(
+                    f"{icon} {display_title}",
+                    key=f"hist_{session_id}",
+                    use_container_width=True,
+                ):
+                    st.session_state.current_session_id = session_id
+                    st.rerun()
+
+    st.divider()
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
         "System Instructions",
         value="You are UTTKARSH AI, a helpful, intelligent assistant.",
-        height=100,
     )
 
-    if st.button("🗑️ Clear History", use_container_width=True):
+    if st.button("🗑️ Clear All Chats", use_container_width=True):
         st.session_state.all_sessions = {"New Chat": []}
         st.session_state.current_session_id = "New Chat"
         save_all_sessions(st.session_state.all_sessions)
         st.rerun()
 
-# 5. Active Chat Screen
+# 5. Get current active chat messages
 current_messages = st.session_state.all_sessions.get(
     st.session_state.current_session_id, []
 )
 
+# Render active chat thread
 for msg in current_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Multimodal Input Header
+# 6. Multimodal Attachment Input
 uploaded_file = st.file_uploader(
     "Attach image or document (optional)", type=["png", "jpg", "jpeg", "pdf"]
 )
 
-# 6. User Prompt Handler
+# 7. User Input & Gemini API Streaming Call
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     current_messages.append({"role": "user", "content": user_prompt})
 
-    # Dynamically update chat title from user's first prompt
+    # Dynamically update thread name based on initial user query
     if (
         len(current_messages) == 1
         and st.session_state.current_session_id.startswith(("Chat ", "New Chat"))
@@ -167,7 +162,6 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # API Request Pipeline
     recent_messages = current_messages[-6:]
     contents = []
     for msg in recent_messages:
