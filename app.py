@@ -43,9 +43,12 @@ def save_history(messages):
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# 4. Sidebar Controls (Clean interface - No model selection UI)
+# 4. Sidebar Controls (Including Search Chat)
 with st.sidebar:
     st.title("✨ UTTKARSH AI")
+
+    # Search bar to filter past chat history
+    search_query = st.text_input("🔍 Search Chat History", value="")
 
     enable_search = st.checkbox("🌐 Enable Web Search Grounding", value=False)
     system_instruction = st.text_area(
@@ -63,8 +66,17 @@ with st.sidebar:
         save_history([])
         st.rerun()
 
-# 5. Render Saved Chat Messages
-for msg in st.session_state.messages:
+# 5. Render Saved Chat Messages (With Search Filtering)
+filtered_messages = st.session_state.messages
+if search_query.strip():
+    filtered_messages = [
+        msg
+        for msg in st.session_state.messages
+        if search_query.lower() in msg["content"].lower()
+    ]
+    st.info(f"Showing results matching: **{search_query}**")
+
+for msg in filtered_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
@@ -84,7 +96,7 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Send last 6 messages to prevent quota limit issues
+    # Send last 6 messages to keep context active while managing API limits
     recent_messages = st.session_state.messages[-6:]
     contents = []
     for msg in recent_messages:
@@ -110,7 +122,6 @@ if user_prompt := st.chat_input("Ask UTTKARSH AI..."):
     if enable_search:
         payload["tools"] = [{"googleSearch": {}}]
 
-    # Direct call to the backend model
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
 
