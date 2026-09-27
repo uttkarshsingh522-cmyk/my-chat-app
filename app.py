@@ -1,15 +1,19 @@
 import streamlit as st
 import os
 
-# Page configuration
-st.set_page_config(page_title="UTTKARSH AI", page_icon="🤖", layout="wide")
+# Set page config with initial_sidebar_state expanded
+st.set_page_config(
+    page_title="UTTKARSH AI", 
+    page_icon="🤖", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Custom CSS to hide default Streamlit UI elements and style top banner
+# Custom CSS to hide Streamlit elements while keeping the sidebar toggle button visible
 st.markdown("""
     <style>
-    /* Hide Streamlit Header, Main Menu, Toolbar, and Footer */
+    /* Hide Streamlit Main Menu, Footer, and Deploy Widgets */
     #MainMenu {visibility: hidden !important;}
-    header {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     .stAppDeployButton {display: none !important;}
     div[data-testid="stToolbar"] {visibility: hidden !important;}
@@ -18,7 +22,13 @@ st.markdown("""
     button[title="View app in Streamlit Community Cloud"] {display: none !important;}
     .viewerBadge_container__163Vn {display: none !important;}
     
-    /* Top Persistent Banner */
+    /* Keep Header transparent so the sidebar collapse/expand toggle button remains clickable */
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        z-index: 99999 !important;
+    }
+
+    /* Top Persistent Banner in Main View */
     .top-banner {
         background-color: #1E1E1E;
         color: #00FFCC;
@@ -30,6 +40,20 @@ st.markdown("""
         border-radius: 8px;
         margin-bottom: 20px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Sidebar Title Banner */
+    .sidebar-banner {
+        background-color: #0E1117;
+        color: #00FFCC;
+        text-align: center;
+        padding: 10px;
+        font-weight: bold;
+        font-size: 16px;
+        letter-spacing: 1.5px;
+        border-bottom: 2px solid #00FFCC;
+        margin-bottom: 15px;
+        border-radius: 6px;
     }
     </style>
     
@@ -54,7 +78,7 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Initialize Gemini 3.6 Flash model with standard fallback
+# Initialize Model
 model_name = "gemini-3.6-flash"
 try:
     model = genai.GenerativeModel(model_name)
@@ -91,25 +115,27 @@ def search_dialog():
             with st.expander(f"{role_label}: {msg['content'][:50]}..."):
                 st.write(msg["content"])
 
-# Sidebar Controls
+# Sidebar Content
 with st.sidebar:
+    # Title display at top of sidebar
+    st.markdown('<div class="sidebar-banner">WELCOME TO UTTKARSH AI</div>', unsafe_allow_html=True)
     st.title("⚙️ Controls")
     
-    # 1. Clickable Search Button opens full chat search overlay
+    # 1. Search Chat Button
     if st.button("🔍 Search Chat", use_container_width=True):
         if not st.session_state.messages:
             st.toast("No past chats available yet!")
         else:
             search_dialog()
 
-    # 2. Clear / Delete Chat Option
+    # 2. Delete Chat Button
     if st.button("🗑️ Delete Chat History", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
         
     st.divider()
     
-    # 3. File & Image Upload Option
+    # 3. File & Image Upload Widget
     st.subheader("📎 Attach Files / Images")
     uploaded_file = st.file_uploader("Upload Image or Document", type=["png", "jpg", "jpeg", "webp", "pdf", "txt"])
 
