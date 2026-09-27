@@ -9,24 +9,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS to hide Streamlit elements while keeping the sidebar toggle button visible
+# Custom CSS for styling header banners and preserving navigation controls
 st.markdown("""
     <style>
-    /* Hide Streamlit Main Menu, Footer, and Deploy Widgets */
-    #MainMenu {visibility: hidden !important;}
+    /* Hide Deploy Badge and Footer */
     footer {visibility: hidden !important;}
     .stAppDeployButton {display: none !important;}
-    div[data-testid="stToolbar"] {visibility: hidden !important;}
-    div[data-testid="stDecoration"] {display: none !important;}
-    div[data-testid="stStatusWidget"] {display: none !important;}
     button[title="View app in Streamlit Community Cloud"] {display: none !important;}
     .viewerBadge_container__163Vn {display: none !important;}
-    
-    /* Keep Header transparent so the sidebar collapse/expand toggle button remains clickable */
-    header[data-testid="stHeader"] {
-        background-color: transparent !important;
-        z-index: 99999 !important;
-    }
 
     /* Top Persistent Banner in Main View */
     .top-banner {
@@ -42,7 +32,7 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
 
-    /* Sidebar Title Banner */
+    /* Sidebar Header Banner */
     .sidebar-banner {
         background-color: #0E1117;
         color: #00FFCC;
@@ -117,7 +107,6 @@ def search_dialog():
 
 # Sidebar Content
 with st.sidebar:
-    # Title display at top of sidebar
     st.markdown('<div class="sidebar-banner">WELCOME TO UTTKARSH AI</div>', unsafe_allow_html=True)
     st.title("⚙️ Controls")
     
