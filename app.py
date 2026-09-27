@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 
-# Set page config with initial_sidebar_state expanded
+# Set page configuration with initial sidebar state open
 st.set_page_config(
     page_title="UTTKARSH AI", 
     page_icon="🤖", 
@@ -9,16 +9,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for styling header banners and preserving navigation controls
+# Custom CSS for UI cleanup and custom header styling
 st.markdown("""
     <style>
-    /* Hide Deploy Badge and Footer */
+    /* Hide Streamlit Footer and Deploy Elements */
     footer {visibility: hidden !important;}
     .stAppDeployButton {display: none !important;}
     button[title="View app in Streamlit Community Cloud"] {display: none !important;}
     .viewerBadge_container__163Vn {display: none !important;}
 
-    /* Top Persistent Banner in Main View */
+    /* Top Banner Styling */
     .top-banner {
         background-color: #1E1E1E;
         color: #00FFCC;
@@ -32,7 +32,7 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
 
-    /* Sidebar Header Banner */
+    /* Sidebar Title Banner */
     .sidebar-banner {
         background-color: #0E1117;
         color: #00FFCC;
@@ -57,7 +57,7 @@ try:
     import google.generativeai as genai
     from PIL import Image
 except ModuleNotFoundError:
-    st.error("Missing required packages. Make sure 'streamlit', 'google-generativeai', and 'Pillow' are in requirements.txt.")
+    st.error("Missing required packages. Ensure 'streamlit', 'google-generativeai', and 'Pillow' are in requirements.txt.")
     st.stop()
 
 # Initialize Gemini API Key
@@ -68,18 +68,18 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Initialize Model
-model_name = "gemini-3.6-flash"
+# Fast Gemini Flash model initialization
+model_name = "gemini-1.5-flash"
 try:
     model = genai.GenerativeModel(model_name)
 except Exception:
     model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Initialize Session State
+# Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Modal dialog for Search Chat feature
+# Dialog for Search Chat
 @st.dialog("🔍 Search Previous Chats")
 def search_dialog():
     query = st.text_input("Type a keyword or phrase to search:", placeholder="e.g., Python, AI, project...")
@@ -105,12 +105,12 @@ def search_dialog():
             with st.expander(f"{role_label}: {msg['content'][:50]}..."):
                 st.write(msg["content"])
 
-# Sidebar Content
+# Sidebar Controls
 with st.sidebar:
     st.markdown('<div class="sidebar-banner">WELCOME TO UTTKARSH AI</div>', unsafe_allow_html=True)
     st.title("⚙️ Controls")
     
-    # 1. Search Chat Button
+    # 1. Search Button
     if st.button("🔍 Search Chat", use_container_width=True):
         if not st.session_state.messages:
             st.toast("No past chats available yet!")
@@ -128,14 +128,21 @@ with st.sidebar:
     st.subheader("📎 Attach Files / Images")
     uploaded_file = st.file_uploader("Upload Image or Document", type=["png", "jpg", "jpeg", "webp", "pdf", "txt"])
 
-# Display Main Chat History
+# Display Existing Chat Messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if "image" in message and message["image"] is not None:
             st.image(message["image"], use_column_width=True)
 
-# Main Input Box
+# Streaming Response Generator Function
+def stream_response(prompt_content):
+    response_stream = model.generate_content(prompt_content, stream=True)
+    for chunk in response_stream:
+        if chunk.text:
+            yield chunk.text
+
+# User Input Box
 if prompt := st.chat_input("Ask UTTKARSH AI..."):
     img = None
     prompt_content = [prompt]
@@ -149,7 +156,7 @@ if prompt := st.chat_input("Ask UTTKARSH AI..."):
             text_content = uploaded_file.read().decode("utf-8", errors="ignore")
             prompt_content[0] += f"\n\n[Attached File Content]:\n{text_content}"
 
-    # Save user message
+    # Append user message
     st.session_state.messages.append({"role": "user", "content": prompt, "image": img})
     
     with st.chat_message("user"):
@@ -157,15 +164,13 @@ if prompt := st.chat_input("Ask UTTKARSH AI..."):
         if img:
             st.image(img, use_column_width=True)
 
-    # Generate Response
+    # Stream Response in Real Time
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
         try:
-            response = model.generate_content(prompt_content)
-            message_placeholder.markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            full_response = st.write_stream(stream_response(prompt_content))
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
         except Exception as e:
             if "503" in str(e) or "UNAVAILABLE" in str(e):
-                message_placeholder.error("Service is temporarily busy. Please send your message again.")
+                st.error("Service is temporarily busy. Please send your message again.")
             else:
-                message_placeholder.error(f"Error: {e}")
+                st.error(f"Error: {e}")
