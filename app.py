@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for UI cleanup and custom header styling
+# Custom CSS for UI styling
 st.markdown("""
     <style>
     /* Hide Streamlit Footer and Deploy Elements */
@@ -68,12 +68,9 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Fast Gemini Flash model initialization
-model_name = "gemini-1.5-flash"
-try:
-    model = genai.GenerativeModel(model_name)
-except Exception:
-    model = genai.GenerativeModel("gemini-1.5-flash")
+# Initialize Gemini 3.6 Flash model directly
+MODEL_ID = "gemini-3.6-flash"
+model = genai.GenerativeModel(MODEL_ID)
 
 # Initialize Chat History
 if "messages" not in st.session_state:
@@ -135,7 +132,7 @@ for message in st.session_state.messages:
         if "image" in message and message["image"] is not None:
             st.image(message["image"], use_column_width=True)
 
-# Streaming Response Generator Function
+# Streaming Generator for low latency response
 def stream_response(prompt_content):
     response_stream = model.generate_content(prompt_content, stream=True)
     for chunk in response_stream:
@@ -156,7 +153,7 @@ if prompt := st.chat_input("Ask UTTKARSH AI..."):
             text_content = uploaded_file.read().decode("utf-8", errors="ignore")
             prompt_content[0] += f"\n\n[Attached File Content]:\n{text_content}"
 
-    # Append user message
+    # Save user message
     st.session_state.messages.append({"role": "user", "content": prompt, "image": img})
     
     with st.chat_message("user"):
@@ -164,7 +161,7 @@ if prompt := st.chat_input("Ask UTTKARSH AI..."):
         if img:
             st.image(img, use_column_width=True)
 
-    # Stream Response in Real Time
+    # Stream Response Live
     with st.chat_message("assistant"):
         try:
             full_response = st.write_stream(stream_response(prompt_content))
