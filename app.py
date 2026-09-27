@@ -1,7 +1,8 @@
 import streamlit as st
 import os
+from datetime import datetime
 
-# Set page configuration with initial sidebar state open
+# Set page configuration
 st.set_page_config(
     page_title="UTTKARSH AI", 
     page_icon="🤖", 
@@ -45,11 +46,19 @@ st.markdown("""
         margin-bottom: 15px;
         border-radius: 6px;
     }
+
+    /* History List Items */
+    .history-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        background-color: #1a1c23;
+        border: 1px solid #2d313e;
+    }
     </style>
-    
-    <div class="top-banner">
-        ALWAYS READY WHEN YOU ARE
-    </div>
 """, unsafe_allow_html=True)
 
 # Import google.generativeai and PIL safely
@@ -68,55 +77,50 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Initialize Gemini 3.6 Flash model directly
+# Initialize Gemini 3.6 Flash model
 MODEL_ID = "gemini-3.6-flash"
 model = genai.GenerativeModel(MODEL_ID)
 
-# Initialize Chat History
+# Initialize Session States
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Dialog for Search Chat
-@st.dialog("🔍 Search Previous Chats")
-def search_dialog():
-    query = st.text_input("Type a keyword or phrase to search:", placeholder="e.g., Python, AI, project...")
-    st.divider()
-    
-    if query.strip():
-        results = [
-            msg for msg in st.session_state.messages 
-            if query.lower() in msg["content"].lower()
-        ]
-        if results:
-            st.write(f"Found **{len(results)}** matching message(s):")
-            for msg in results:
-                role_label = "👤 User" if msg["role"] == "user" else "🤖 UTTKARSH AI"
-                with st.expander(f"{role_label}: {msg['content'][:40]}..."):
-                    st.write(msg["content"])
-        else:
-            st.info("No matching conversations found.")
-    else:
-        st.write("All Past Messages:")
-        for msg in st.session_state.messages:
-            role_label = "👤 User" if msg["role"] == "user" else "🤖 UTTKARSH AI"
-            with st.expander(f"{role_label}: {msg['content'][:50]}..."):
-                st.write(msg["content"])
+if "view_mode" not in st.session_state:
+    st.session_state.view_mode = "chat"  # Options: "chat" or "search"
+
+# Sample default search history list (Matches screenshot structure)
+if "chat_history_list" not in st.session_state:
+    st.session_state.chat_history_list = [
+        {"title": "Building a Python ChatGPT Clone", "date": "Today"},
+        {"title": "How to Close Running Programs", "date": "Yesterday"},
+        {"title": "How to Install Android APK", "date": "Yesterday"},
+        {"title": "Offline Music Player Apps Guide", "date": "Sep 25"},
+        {"title": "NCERT Class 11 Math Activity", "date": "Sep 25"},
+        {"title": "Class 11 IP Data Handling Notes", "date": "Sep 23"},
+        {"title": "Windows 11 System Requirements", "date": "Sep 23"},
+        {"title": "Pandas Data Handling Exam Cheat Sheet", "date": "Sep 23"},
+        {"title": "Fix Missing .NET Framework Error", "date": "Sep 12"},
+    ]
 
 # Sidebar Controls
 with st.sidebar:
     st.markdown('<div class="sidebar-banner">WELCOME TO UTTKARSH AI</div>', unsafe_allow_html=True)
     st.title("⚙️ Controls")
     
-    # 1. Search Button
-    if st.button("🔍 Search Chat", use_container_width=True):
-        if not st.session_state.messages:
-            st.toast("No past chats available yet!")
-        else:
-            search_dialog()
+    # Navigation Buttons
+    if st.session_state.view_mode == "search":
+        if st.button("💬 Back to Chat", use_container_width=True):
+            st.session_state.view_mode = "chat"
+            st.rerun()
+    else:
+        if st.button("🔍 Search Chat", use_container_width=True):
+            st.session_state.view_mode = "search"
+            st.rerun()
 
     # 2. Delete Chat Button
     if st.button("🗑️ Delete Chat History", use_container_width=True):
         st.session_state.messages = []
+        st.toast("Chat history cleared!")
         st.rerun()
         
     st.divider()
@@ -125,49 +129,97 @@ with st.sidebar:
     st.subheader("📎 Attach Files / Images")
     uploaded_file = st.file_uploader("Upload Image or Document", type=["png", "jpg", "jpeg", "webp", "pdf", "txt"])
 
-# Display Existing Chat Messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if "image" in message and message["image"] is not None:
-            st.image(message["image"], use_column_width=True)
-
-# Streaming Generator for low latency response
-def stream_response(prompt_content):
-    response_stream = model.generate_content(prompt_content, stream=True)
-    for chunk in response_stream:
-        if chunk.text:
-            yield chunk.text
-
-# User Input Box
-if prompt := st.chat_input("Ask UTTKARSH AI..."):
-    img = None
-    prompt_content = [prompt]
+# ==========================================
+# PAGE VIEW 1: SEARCH CHAT HISTORY INTERFACE
+# ==========================================
+if st.session_state.view_mode == "search":
+    st.markdown('<div class="top-banner">SEARCH CHATS</div>', unsafe_allow_html=True)
     
-    if uploaded_file is not None:
-        file_type = uploaded_file.name.split(".")[-1].lower()
-        if file_type in ["png", "jpg", "jpeg", "webp"]:
-            img = Image.open(uploaded_file)
-            prompt_content.append(img)
-        elif file_type in ["txt", "pdf"]:
-            text_content = uploaded_file.read().decode("utf-8", errors="ignore")
-            prompt_content[0] += f"\n\n[Attached File Content]:\n{text_content}"
+    # Centered Search Bar
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        search_query = st.text_input("🔍 Search chats", placeholder="Search chats...", label_visibility="collapsed")
+        st.write("")
+        st.subheader("Recent")
+        
+        # Filter Chat History
+        filtered_history = st.session_state.chat_history_list
+        if search_query.strip():
+            filtered_history = [
+                item for item in st.session_state.chat_history_list 
+                if search_query.lower() in item["title"].lower()
+            ]
 
-    # Save user message
-    st.session_state.messages.append({"role": "user", "content": prompt, "image": img})
-    
-    with st.chat_message("user"):
-        st.markdown(prompt)
-        if img:
-            st.image(img, use_column_width=True)
+        # Display History List
+        if filtered_history:
+            for item in filtered_history:
+                col_title, col_date = st.columns([4, 1])
+                with col_title:
+                    if st.button(f"💬 {item['title']}", key=f"hist_{item['title']}", use_container_width=True):
+                        st.session_state.view_mode = "chat"
+                        st.rerun()
+                with col_date:
+                    st.caption(f"**{item['date']}**")
+        else:
+            st.info("No matching chat history found.")
 
-    # Stream Response Live
-    with st.chat_message("assistant"):
-        try:
-            full_response = st.write_stream(stream_response(prompt_content))
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
-        except Exception as e:
-            if "503" in str(e) or "UNAVAILABLE" in str(e):
-                st.error("Service is temporarily busy. Please send your message again.")
-            else:
-                st.error(f"Error: {e}")
+# ==========================================
+# PAGE VIEW 2: REGULAR CHAT INTERFACE
+# ==========================================
+else:
+    st.markdown('<div class="top-banner">ALWAYS READY WHEN YOU ARE</div>', unsafe_allow_html=True)
+
+    # Display Existing Chat Messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if "image" in message and message["image"] is not None:
+                st.image(message["image"], use_column_width=True)
+
+    # Streaming Generator for response
+    def stream_response(prompt_content):
+        response_stream = model.generate_content(prompt_content, stream=True)
+        for chunk in response_stream:
+            if chunk.text:
+                yield chunk.text
+
+    # User Input Box
+    if prompt := st.chat_input("Ask UTTKARSH AI..."):
+        img = None
+        prompt_content = [prompt]
+        
+        # Add new chat entry to search history list dynamically if first prompt
+        if len(st.session_state.messages) == 0:
+            title_text = prompt[:35] + "..." if len(prompt) > 35 else prompt
+            st.session_state.chat_history_list.insert(0, {
+                "title": title_text,
+                "date": "Today"
+            })
+
+        if uploaded_file is not None:
+            file_type = uploaded_file.name.split(".")[-1].lower()
+            if file_type in ["png", "jpg", "jpeg", "webp"]:
+                img = Image.open(uploaded_file)
+                prompt_content.append(img)
+            elif file_type in ["txt", "pdf"]:
+                text_content = uploaded_file.read().decode("utf-8", errors="ignore")
+                prompt_content[0] += f"\n\n[Attached File Content]:\n{text_content}"
+
+        # Save user message
+        st.session_state.messages.append({"role": "user", "content": prompt, "image": img})
+        
+        with st.chat_message("user"):
+            st.markdown(prompt)
+            if img:
+                st.image(img, use_column_width=True)
+
+        # Stream Response Live
+        with st.chat_message("assistant"):
+            try:
+                full_response = st.write_stream(stream_response(prompt_content))
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+            except Exception as e:
+                if "503" in str(e) or "UNAVAILABLE" in str(e):
+                    st.error("Service is temporarily busy. Please send your message again.")
+                else:
+                    st.error(f"Error: {e}")
